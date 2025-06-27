@@ -1,0 +1,20 @@
+{
+	"namespace": "FamilyTrip",
+	"displayName": "Family Trip",
+	"version": "5.3",
+	"synchronyVersion": "4.1.1",
+	"description": "Add a playable character: Family Trip.",
+	"author": "JagYayu☣",
+	"dependencies": {},
+	"api": {"scriptPath":""},
+	"icon": "FamilyTripIcon.png",
+	"banner": "FamilyTripBanner.png",
+	"tags": [],
+	"name": "FamilyTrip_io_4950032",
+	"changelog": "",
+	"homepageURL": "https://mod.io/g/crypt/m/familytrip",
+	"modioID": "4950032",
+	"modioUserID": 13661250,
+	"pendingVersion": "5.3",
+	"visibility": 0
+}

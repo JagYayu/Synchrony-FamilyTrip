@@ -7,23 +7,24 @@ local FamilyTripCharacterSkins = {}
 
 local CharacterSkins = require "CharacterSkins.CharacterSkins"
 local SkinStorage = require "CharacterSkins.SkinStorage"
-local SkinTemplate = require "CharacterSkins.SkinTemplate"
 local SkinVirtualResource = require "CharacterSkins.SkinVirtualResource"
 
 local Array = require "system.utils.Array"
-local Config = require "necro.config.Config"
-local Enum = require "system.utils.Enum"
-local Event = require "necro.event.Event"
-local FileIO = require "system.game.FileIO"
 local Components = require "necro.game.data.Components"
+local Config = require "necro.config.Config"
 local ECS = require "system.game.Entities"
+local Enum = require "system.utils.Enum"
+local FileIO = require "system.game.FileIO"
 local GFX = require "system.gfx.GFX"
 local LocalCoop = require "necro.client.LocalCoop"
+local Menu = require "necro.menu.Menu"
 local Netplay = require "necro.network.Netplay"
 local Player = require "necro.game.character.Player"
 local PlayerList = require("necro.client.PlayerList")
+local Settings = require "necro.config.Settings"
 local StringUtilities = require "system.utils.StringUtilities"
 local Utilities = require "system.utils.Utilities"
+local VisualUpdate = require "necro.cycles.VisualUpdate"
 
 FamilyTripCharacterSkins.PlayerAttribute = Netplay.PlayerAttribute.extend("FamilyTrip_Skin", Enum.data { user = true })
 
@@ -35,12 +36,21 @@ event.entitySchemaLoadNamedEntity.add("familySoulCharacterSkins", FamilyTrip.Fam
 	ev.entity.FamilyTrip_characterSkins = {}
 end)
 
+local function isSkinVisibleForPlayerID(playerID)
+	local visibility = CharacterSkins.getSkinVisibility()
+	if visibility == CharacterSkins.Visibility.LOCAL_PLAYERS then
+		return LocalCoop.isLocal(playerID)
+	else
+		return visibility == CharacterSkins.Visibility.ALWAYS
+	end
+end
+
 local function isSameTexture(tex1, tex2)
 	return SkinVirtualResource.getUnsubstitutedFile(tex1) == SkinVirtualResource.getUnsubstitutedFile(tex2)
 end
 
-local function applySprite(entity, sprite)
-	local proto = ECS.getEntityPrototype(entity.name)
+local function applySprite(entity, sprite, remap)
+	local proto = ECS.getEntityPrototype(remap or entity.name)
 	local mirrorOffsetX = 0
 	if entity.positionalSprite then
 		local oldOffsetY = entity.positionalSprite.offsetY
@@ -55,9 +65,12 @@ local function applySprite(entity, sprite)
 	entity.sprite.mirrorOffsetX = 24 - entity.sprite.width - mirrorOffsetX
 	if entity.attachmentCopySpritePosition then
 		local protoHead = proto.attachmentCopySpritePosition
-		entity.attachmentCopySpritePosition.offsetX = sprite.offsetX or protoHead.offsetX
-		entity.attachmentCopySpritePosition.offsetY = sprite.offsetY or protoHead.offsetY
-		entity.attachmentCopySpritePosition.offsetZ = sprite.offsetY and -sprite.offsetY or protoHead.offsetZ
+		entity.attachmentCopySpritePosition.offsetX = sprite.offsetX or (protoHead and protoHead.offsetX)
+			or entity.attachmentCopySpritePosition.offsetX
+		entity.attachmentCopySpritePosition.offsetY = sprite.offsetY or (protoHead and protoHead.offsetY)
+			or entity.attachmentCopySpritePosition.offsetY
+		entity.attachmentCopySpritePosition.offsetZ = sprite.offsetY and -sprite.offsetY
+			or (protoHead and protoHead.offsetZ) or entity.attachmentCopySpritePosition.offsetZ
 	end
 	if entity.CharacterSkins_textureBounds then
 		local sheetWidth = sprite.sheetWidth or GFX.getImageWidth(entity.sprite.texture)
@@ -67,38 +80,74 @@ local function applySprite(entity, sprite)
 		entity.CharacterSkins_textureBounds.height = math.max(1, math.floor(sheetHeight / spriteHeight)) * spriteHeight
 	end
 	if entity.CharacterSkins_hideIfUnskinned then
-		entity.CharacterSkins_hideIfUnskinned.active = sprite.hideIfTransformed or isSameTexture(entity.sprite.texture, proto.sprite.texture)
+		entity.CharacterSkins_hideIfUnskinned.active = sprite.hideIfTransformed or
+			isSameTexture(entity.sprite.texture, proto.sprite.texture)
 	end
 end
 
-local function applyFamilyMemberSkin(memberEntity, playerID, characterName)
+local function applyDefaultSkin(entity, remap)
+	applySprite(entity, {}, remap)
+end
+
+local characterNameSet = {
+	Cadence = true,
+	Dorian = true,
+	Aria = true,
+	Melody = true,
+}
+
+local function applySkin(entity, playerID, characterName)
+	if not isSkinVisibleForPlayerID(playerID) then
+		return applyDefaultSkin(entity)
+	end
+
 	local attribute = PlayerList.getAttribute(playerID, FamilyTripCharacterSkins.PlayerAttribute)
 	if type(attribute) ~= "table" or type(attribute[characterName]) ~= "table" then
-		return
+		return applyDefaultSkin(entity)
 	end
+
+	-- characterName = attribute[characterName].remap or characterName
+	-- if not attribute[characterName] then
+	-- 	return applyDefaultSkin(entity)
+	-- end
 
 	local sprites = attribute[characterName].sprites
 	if not sprites then
-		return
+		return applyDefaultSkin(entity)
 	end
 
-	local sprite = sprites[memberEntity.CharacterSkins_skinnable.imageType]
+	local sprite = sprites[entity.CharacterSkins_skinnable.imageType]
 	if not sprite then
-		return
+		return applyDefaultSkin(entity)
 	end
 
 	sprite = Utilities.fastCopy(sprite)
-	local prototype = ECS.getEntityPrototype(memberEntity.name)
-	sprite.texture = FamilyTripCharacterSkins.getPathForPlayer(playerID, sprite.texture, characterName, prototype and prototype.sprite and prototype.sprite.texture)
-	applySprite(memberEntity, sprite)
+	local prototype = ECS.getEntityPrototype(entity.name)
+	sprite.texture = FamilyTripCharacterSkins.getPathForPlayer(playerID, sprite.texture, characterName,
+		prototype and prototype.sprite and prototype.sprite.texture)
+	applySprite(entity, sprite)
+end
 
+local function appendHead(what)
+	return what .. "Head"
+end
+
+local function applyAttachmentSkin(memberEntity, playerID, characterName)
 	if memberEntity.characterWithAttachment then
 		local attachment = ECS.getEntityByID(memberEntity.characterWithAttachment.attachmentID or 0)
 		if attachment then
-			applyFamilyMemberSkin(attachment, playerID, characterName)
+			applySkin(attachment, playerID, characterName, appendHead)
 		end
 	end
 end
+
+local uploadPending = false
+
+local function handlerUploadPending()
+	uploadPending = true
+end
+
+FamilyTripCharacterSkins.uploadPending = handlerUploadPending
 
 local memberNameMapping = {
 	FamilyTrip_Daughter = "Cadence",
@@ -107,17 +156,43 @@ local memberNameMapping = {
 	FamilyTrip_Mother = "Melody",
 }
 
-function FamilyTripCharacterSkins.applyFamilyMemberSkins()
-	for _, entity in ipairs(Player.getPlayerEntities()) do
-		if entity.name == FamilyTrip.FamilySoulName and entity.FamilyTrip_family and entity.controllable and entity.controllable.playerID ~= 0 then
-			for _, member in ipairs(entity.FamilyTrip_family.members) do
-				local memberEntity = ECS.getEntityByID(member)
-				local name = memberEntity and memberNameMapping[memberEntity.name]
-				if name and memberEntity.CharacterSkins_skinnable then
-					applyFamilyMemberSkin(memberEntity, entity.controllable.playerID, name)
-				end
-			end
+-- TODO not implement yet
+SettingSkinMap = Settings.user.table {
+	id = "skinMap",
+	name = "Skin remapping",
+	visibility = Settings.Visibility.HIDDEN,
+	-- default = {
+	-- 	Cadence = "Cadence",
+	-- 	Dorian = "Dorian",
+	-- 	Aria = "Aria",
+	-- 	Melody = "Melody",
+	-- },
+	setter = handlerUploadPending,
+}
+
+local function applySpecificFamilyMemberSkins(playerID)
+	local entity = Player.getPlayerEntity(playerID)
+	if entity.name ~= FamilyTrip.FamilySoulName or not entity.FamilyTrip_family then
+		return
+	end
+
+	for _, member in ipairs(entity.FamilyTrip_family.members) do
+		local memberEntity = ECS.getEntityByID(member)
+		local character = memberEntity and memberNameMapping[memberEntity.name]
+		if character and memberEntity.CharacterSkins_skinnable then
+			applySkin(memberEntity, playerID, character)
+			applyAttachmentSkin(memberEntity, playerID, character)
 		end
+	end
+end
+
+function FamilyTripCharacterSkins.applyFamilyMemberSkins(playerID)
+	if playerID then
+		return applySpecificFamilyMemberSkins(playerID)
+	end
+
+	for _, playerID in ipairs(PlayerList.getPlayerList()) do
+		applySpecificFamilyMemberSkins(playerID)
 	end
 end
 
@@ -140,7 +215,7 @@ function FamilyTripCharacterSkins.update(playerID)
 	return event.assetReload.fire({ name = getAssetReloadKey(playerID) })
 end
 
-Event.loadVirtualResource.add("characterSkins", virtualResourceID, function(ev)
+event.loadVirtualResource.add("characterSkins", virtualResourceID, function(ev)
 	local args = ev.args
 	local playerID = tonumber(args.playerID)
 
@@ -154,7 +229,16 @@ Event.loadVirtualResource.add("characterSkins", virtualResourceID, function(ev)
 		end
 	end
 
-	ev.data = Array.fromString(Array.Type.UINT8, imageData or FileIO.readFileToString(SkinVirtualResource.getUnsubstitutedFile(args.fallback)))
+	ev.data = Array.fromString(Array.Type.UINT8,
+		imageData or FileIO.readFileToString(SkinVirtualResource.getUnsubstitutedFile(args.fallback)))
+end)
+
+event.clientDisconnect.add("undateCharacterSkins", "reset", FamilyTripCharacterSkins.update)
+
+event.clientPlayerList.add("reloadCharacterSkins", FamilyTripCharacterSkins.PlayerAttribute, function(ev)
+	FamilyTripCharacterSkins.update(ev.playerID)
+	applySpecificFamilyMemberSkins(ev.playerID)
+	VisualUpdate.trigger()
 end)
 
 local function tryReadFile(filename)
@@ -172,7 +256,7 @@ local function applyEquipmentVisibility(skin)
 	return skin
 end
 
-local function makeNetworkSkin(skin, characterName, data, playerID)
+local function makeNetworkSkin(skin, characterName, data, remap)
 	if skin and skin.sprites then
 		local customized = false
 		skin = Utilities.fastCopy(skin)
@@ -195,6 +279,8 @@ local function makeNetworkSkin(skin, characterName, data, playerID)
 		end
 	end
 
+	skin.remap = remap
+
 	return applyEquipmentVisibility(skin)
 end
 
@@ -207,26 +293,52 @@ function FamilyTripCharacterSkins.upload(coopID)
 		local attribute = { _data = {}, _rev = revisionCounter }
 
 		for _, characterName in pairs(memberNameMapping) do
-			attribute[characterName] = makeNetworkSkin(SkinStorage.get(coopID, characterName), characterName, attribute._data, playerID)
+			local remapName = characterName
+			local prototype = ECS.getEntityPrototype(SettingSkinMap[characterName])
+			if prototype and prototype.playableCharacter then
+				remapName = SettingSkinMap[characterName]
+			end
+
+			if remapName then
+				attribute[characterName] = makeNetworkSkin(SkinStorage.get(coopID, remapName),
+					remapName, attribute._data, remapName)
+			else
+				attribute[remapName] = makeNetworkSkin(SkinStorage.get(coopID, remapName), remapName, attribute._data)
+			end
 		end
 
 		LocalCoop.setPlayerAttribute(playerID, FamilyTripCharacterSkins.PlayerAttribute, attribute)
 	end
 end
 
--- just put apply function in tick event, too lazy to optimize xD
-local function todoOptimizeUpdateConditions()
-	for coopID, playerID in ipairs(LocalCoop.getLocalPlayerIDs()) do
-		local entity = Player.getPlayerEntity(playerID)
-		if entity and entity.name == FamilyTrip.FamilySoulName then
-			FamilyTripCharacterSkins.upload(coopID)
+event.objectControllerChanged.add("queueCharacterSkinUpload", {
+	filter = "CharacterSkins_skinUseControllerPlayerID",
+	order = "persistence",
+	sequence = -1,
+}, handlerUploadPending)
+
+event.objectCharacterSwitchTo.add("queueCharacterSkinUpload", {
+	filter = "CharacterSkins_skinUseControllerPlayerID",
+	order = "skin",
+}, handlerUploadPending)
+
+event.clientLogIn.add("queueCharacterSkinUpload", "playerList", handlerUploadPending)
+
+event.menu.add("queueCharacterSkinUpload", "CharacterSkins_skinSelector", handlerUploadPending)
+
+event.periodicCheck.add("familyMemberSkins", "init", function()
+	if uploadPending and not Menu.isOpen() then
+		for coopID, playerID in ipairs(LocalCoop.getLocalPlayerIDs()) do
+			local entity = Player.getPlayerEntity(playerID)
+			if entity and entity.name == FamilyTrip.FamilySoulName then
+				FamilyTripCharacterSkins.upload(coopID)
+			end
 		end
+
+		uploadPending = false
 	end
 
 	FamilyTripCharacterSkins.applyFamilyMemberSkins()
-end
-
-event.periodicCheck.add("familyMemberSkins", "init", todoOptimizeUpdateConditions)
-event.gameStateLevel.add("familyMemberSkins", "levelLoadingDone", todoOptimizeUpdateConditions)
+end)
 
 return FamilyTripCharacterSkins

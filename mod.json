@@ -1,7 +1,7 @@
 {
 	"namespace": "FamilyTrip",
 	"displayName": "Family Trip",
-	"version": "5.3",
+	"version": "5.4",
 	"synchronyVersion": "4.1.1",
 	"description": "Add a playable character: Family Trip.",
 	"author": "JagYayu☣",
@@ -15,6 +15,6 @@
 	"homepageURL": "https://mod.io/g/crypt/m/familytrip",
 	"modioID": "4950032",
 	"modioUserID": 13661250,
-	"pendingVersion": "5.3",
+	"pendingVersion": "5.4",
 	"visibility": 0
 }

@@ -342,10 +342,12 @@ function FamilyTrip.familyMemberModifier(entity)
 	end
 
 	if entity.collisionCheckOnMove then
-		entity.collisionCheckOnMove.mask = Collision.Type.unmask(entity.collisionCheckOnMove.mask or 0, Collision.Type.PLAYER)
+		entity.collisionCheckOnMove.mask = Collision.Type.unmask(entity.collisionCheckOnMove.mask or 0,
+			Collision.Type.PLAYER)
 	end
 	if entity.collisionCheckOnTeleport then
-		entity.collisionCheckOnTeleport.mask = Collision.Type.unmask(entity.collisionCheckOnTeleport.mask or 0, Collision.Type.PLAYER)
+		entity.collisionCheckOnTeleport.mask = Collision.Type.unmask(entity.collisionCheckOnTeleport.mask or 0,
+			Collision.Type.PLAYER)
 	end
 	entity.descentSpectateOnCompletion = {}
 	if not entity.setFacingOnMove then
@@ -849,7 +851,8 @@ event.objectSpecialAction.add("familyThrowBomb", {
 
 		if direction then
 			--- @diagnostic disable-next-line: param-type-mismatch
-			Move.direction(entity, direction, ev.entity.FamilyTrip_familyThrowBomb.pushDistance, ev.entity.FamilyTrip_familyThrowBomb.pushType)
+			Move.direction(entity, direction, ev.entity.FamilyTrip_familyThrowBomb.pushDistance,
+				ev.entity.FamilyTrip_familyThrowBomb.pushType)
 
 			break
 		end
@@ -892,27 +895,7 @@ local familyMemberAutoActSelectorFire = EntitySelector.new(event.FamilyTrip_fami
 event.objectMoveResult.add("familyMemberAutoActs", {
 	filter = "FamilyTrip_family",
 	order = "ai",
-}, function(ev)
-	-- local leader = ev.FamilyTrip_leader or FamilyTrip.getFamilyLeader(ev.entity.FamilyTrip_family)
-
-	-- for _, memberEntity in ipairs(FamilyTrip.getFamilyMembers(ev.entity.FamilyTrip_family)) do
-	-- 	if memberEntity ~= leader and memberEntity.FamilyTrip_familyMemberAutoAct then
-	-- 		local result
-
-	-- 		if memberEntity.character.canAct and not (memberEntity.hasMoved and memberEntity.hasMoved.value) then
-	-- 			local ev1 = {
-	-- 				entity = memberEntity,
-	-- 			}
-	-- 			familyMemberAutoActSelectorFire(ev1, memberEntity.name)
-	-- 			result = ev1.result
-	-- 		end
-
-	-- 		if not result then
-	-- 			FamilyTrip.performFamilyMemberAction(memberEntity, Action.Special.IDLE)
-	-- 		end
-	-- 	end
-	-- end
-end)
+}, function() end)
 
 local function handleFamilyMemberAutoActs(familyEntity)
 	local leader = FamilyTrip.getFamilyLeader(familyEntity.FamilyTrip_family)
@@ -1313,7 +1296,8 @@ do
 			return ld < rd
 		end
 
-		return l.id < r.id
+		return Utilities.arrayFind(memberEntitiesComparerEntities, l) <
+			Utilities.arrayFind(memberEntitiesComparerEntities, r)
 	end
 
 	sortFamilyMembersByLeaderPosition = function(memberEntities, x, y)
@@ -1331,7 +1315,8 @@ event.objectMove.add("familyLeaderMoveFamily", {
 }, function(ev)
 	local isLeader, familyEntity = FamilyTrip.isFamilyLeader(ev.entity)
 	if isLeader and familyEntity then
-		Move.absolute(familyEntity, ev.entity.position.x, ev.entity.position.y, Move.Flag.unmask(ev.moveType, familyEntity.FamilyTrip_family.moveFlagUnmask))
+		Move.absolute(familyEntity, ev.entity.position.x, ev.entity.position.y,
+			Move.Flag.unmask(ev.moveType, familyEntity.FamilyTrip_family.moveFlagUnmask))
 	end
 end)
 
@@ -1385,7 +1370,8 @@ event.objectMove.add("familyMemberMover", {
 		end
 	end
 
-	sortFamilyMembersByLeaderPosition(memberEntities, Utilities.lerp(ev.prevX, ev.x, -.25), Utilities.lerp(ev.prevY, ev.y, -.25))
+	sortFamilyMembersByLeaderPosition(memberEntities, Utilities.lerp(ev.prevX, ev.x, -.25),
+		Utilities.lerp(ev.prevY, ev.y, -.25))
 
 	for _, memberEntity in ipairs(memberEntities) do
 		memberEntity.FamilyTrip_familyMemberMovable.value = false
@@ -1658,7 +1644,7 @@ SettingCustomCharOrder = Settings.user.table {
 	name = "Custom character orders",
 	desc = "Customize character orders of `Family Soul`.\
 If you want Dorian always be the first and Aria to be second, fill in {\"Dorian\",\"Aria\"}\
-Available values: Aria, Cadence, Dorian, Melody",
+Available values: \"Aria\", \"Cadence\", \"Dorian\", \"Melody\"",
 	setter = FamilyTrip.updateClientCharOrderPending,
 	visibility = Settings.Visibility.VISIBLE,
 }
@@ -1707,7 +1693,7 @@ FamilyTrip.Action_Special_DefineCharOrder, updateUserDefinedCharOrder = CustomAc
 			melody = "FamilyTrip_Mother",
 		}
 		for index, name in ipairs(args.custom) do
-			customizedOrders[nameMapping[tostring(name):lower()] or false] = index
+			customizedOrders[nameMapping[tostring(name):lower()] or name] = index
 		end
 
 		local defaultOrders = {}
@@ -1755,7 +1741,13 @@ event.renderPlayerListEntry.add("familyUseLeaderSprite", {
 }, function(ev)
 	local leaderEntity = FamilyTrip.getFamilyLeader(ev.entity.FamilyTrip_family)
 	if leaderEntity then
-		ev.spriteEntity = leaderEntity
+		if leaderEntity.characterWithAttachment then
+			leaderEntity = ECS.getEntityByID(leaderEntity.characterWithAttachment.attachmentID) or leaderEntity
+			ev.spriteEntity = leaderEntity
+			ev.spriteOffsetY = 2
+		else
+			ev.spriteEntity = leaderEntity
+		end
 	end
 end)
 

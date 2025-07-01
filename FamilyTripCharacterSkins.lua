@@ -172,7 +172,7 @@ SettingSkinMap = Settings.user.table {
 
 local function applySpecificFamilyMemberSkins(playerID)
 	local entity = Player.getPlayerEntity(playerID)
-	if entity.name ~= FamilyTrip.FamilySoulName or not entity.FamilyTrip_family then
+	if not entity or entity.name ~= FamilyTrip.FamilySoulName or not entity.FamilyTrip_family then
 		return
 	end
 
@@ -279,9 +279,10 @@ local function makeNetworkSkin(skin, characterName, data, remap)
 		end
 	end
 
+	skin = applyEquipmentVisibility(skin)
 	skin.remap = remap
 
-	return applyEquipmentVisibility(skin)
+	return skin
 end
 
 local revisionCounter = 0

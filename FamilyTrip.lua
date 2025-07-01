@@ -1,63 +1,67 @@
 local FamilyTrip = {}
 
-local Ability = require "necro.game.system.Ability"
-local Action = require "necro.game.system.Action"
-local AffectorItem = require "necro.game.item.AffectorItem"
-local Attack = require "necro.game.character.Attack"
-local Beatmap = require "necro.audio.Beatmap"
-local Boss = require "necro.game.level.Boss"
-local Character = require "necro.game.character.Character"
-local Collision = require "necro.game.tile.Collision"
-local Components = require "necro.game.data.Components"
-local Currency = require "necro.game.item.Currency"
-local CurrentLevel = require "necro.game.level.CurrentLevel"
-local CustomActions = require "necro.game.data.CustomActions"
-local CustomEntities = require "necro.game.data.CustomEntities"
-local Damage = require "necro.game.system.Damage"
-local Delay = require "necro.game.system.Delay"
-local Descent = require "necro.game.character.Descent"
-local ECS = require "system.game.Entities"
-local EnemySubstitutions = require "necro.game.system.EnemySubstitutions"
-local EntitySelector = require "system.events.EntitySelector"
-local Facing = require "necro.game.character.Facing"
-local Focus = require "necro.game.character.Focus"
-local GrooveChain = require "necro.game.character.GrooveChain"
-local Interaction = require "necro.game.object.Interaction"
-local Invincibility = require "necro.game.character.Invincibility"
-local ItemBan = require "necro.game.item.ItemBan"
-local ItemSlot = require "necro.game.item.ItemSlot"
-local Kill = require "necro.game.character.Kill"
-local LocalCoop = require "necro.client.LocalCoop"
-local Move = require "necro.game.system.Move"
-local Object = require "necro.game.object.Object"
-local ObjectEvents = require "necro.game.object.ObjectEvents"
-local ObjectMap = require "necro.game.object.Map"
-local Player = require "necro.game.character.Player"
-local ProceduralLevel = require "necro.game.data.level.ProceduralLevel"
-local RNG = require "necro.game.system.RNG"
-local Respawn = require "necro.game.character.Respawn"
-local Settings = require "necro.config.Settings"
-local SettingsMenu = require "necro.menu.settings.SettingsMenu"
-local Snapshot = require "necro.game.system.Snapshot"
-local StringUtilities = require "system.utils.StringUtilities"
-local SoulLink = require "necro.game.character.SoulLink"
-local Team = require "necro.game.character.Team"
-local Tile = require "necro.game.tile.Tile"
-local Turn = require "necro.cycles.Turn"
-local Utilities = require "system.utils.Utilities"
+local Ability = require("necro.game.system.Ability")
+local Action = require("necro.game.system.Action")
+local AffectorItem = require("necro.game.item.AffectorItem")
+local Attack = require("necro.game.character.Attack")
+local Beatmap = require("necro.audio.Beatmap")
+local Boss = require("necro.game.level.Boss")
+local Character = require("necro.game.character.Character")
+local Collision = require("necro.game.tile.Collision")
+local Components = require("necro.game.data.Components")
+local Currency = require("necro.game.item.Currency")
+local CurrentLevel = require("necro.game.level.CurrentLevel")
+local CustomActions = require("necro.game.data.CustomActions")
+local CustomEntities = require("necro.game.data.CustomEntities")
+local Damage = require("necro.game.system.Damage")
+local Delay = require("necro.game.system.Delay")
+local Descent = require("necro.game.character.Descent")
+local ECS = require("system.game.Entities")
+local EnemySubstitutions = require("necro.game.system.EnemySubstitutions")
+local EntitySelector = require("system.events.EntitySelector")
+local Facing = require("necro.game.character.Facing")
+local Focus = require("necro.game.character.Focus")
+local GrooveChain = require("necro.game.character.GrooveChain")
+local Interaction = require("necro.game.object.Interaction")
+local Invincibility = require("necro.game.character.Invincibility")
+local ItemBan = require("necro.game.item.ItemBan")
+local ItemSlot = require("necro.game.item.ItemSlot")
+local Kill = require("necro.game.character.Kill")
+local LocalCoop = require("necro.client.LocalCoop")
+local Move = require("necro.game.system.Move")
+local Object = require("necro.game.object.Object")
+local ObjectEvents = require("necro.game.object.ObjectEvents")
+local ObjectMap = require("necro.game.object.Map")
+local Player = require("necro.game.character.Player")
+local ProceduralLevel = require("necro.game.data.level.ProceduralLevel")
+local RNG = require("necro.game.system.RNG")
+local Respawn = require("necro.game.character.Respawn")
+local Settings = require("necro.config.Settings")
+local SettingsMenu = require("necro.menu.settings.SettingsMenu")
+local Snapshot = require("necro.game.system.Snapshot")
+local StringUtilities = require("system.utils.StringUtilities")
+local SoulLink = require("necro.game.character.SoulLink")
+local Team = require("necro.game.character.Team")
+local Tile = require("necro.game.tile.Tile")
+local Turn = require("necro.cycles.Turn")
+local Utilities = require("system.utils.Utilities")
 
 local Utilities_squareDistance = Utilities.squareDistance
 
-FamilyTrip.EnemySubstitutions_Type = EnemySubstitutions.Type.extend "FamilyTrip_FamilySoul"
+FamilyTrip.EnemySubstitutions_Type = EnemySubstitutions.Type.extend("FamilyTrip_FamilySoul")
 
-local FamilyTrip_familyMemberGrooveChainIdleImmunity_types = Utilities.listToSet {
+local FamilyTrip_familyMemberGrooveChainIdleImmunity_types = Utilities.listToSet({
 	GrooveChain.Type.IDLE,
 	GrooveChain.Type.FAIL,
-}
+})
 
-Components.register {
+Components.register({
 	FamilyTrip_attackableOverrideInLobby = {
-		Components.constant.enum("attackFlags", Attack.Flag, Attack.Flag.mask(Attack.Flag.PLAYER_CONTROLLED, Attack.Flag.TRAP)),
+		Components.constant.enum(
+			"attackFlags",
+			Attack.Flag,
+			Attack.Flag.mask(Attack.Flag.PLAYER_CONTROLLED, Attack.Flag.TRAP)
+		),
 	},
 	FamilyTrip_autoAttackTarget = {},
 	FamilyTrip_family = {
@@ -66,7 +70,11 @@ Components.register {
 		Components.constant.string("initialSoulLink", "FamilyTrip_SoulLinkFamily"),
 		Components.constant.bool("invisibleSprite", true),
 		Components.field.table("members"),
-		Components.constant.enum("moveFlagUnmask", Move.Flag, Move.Flag.mask(Move.Flag.ALLOW_PARTIAL_MOVE, Move.Flag.COLLIDE_DESTINATION, Move.Flag.COLLIDE_INTERMEDIATE)),
+		Components.constant.enum(
+			"moveFlagUnmask",
+			Move.Flag,
+			Move.Flag.mask(Move.Flag.ALLOW_PARTIAL_MOVE, Move.Flag.COLLIDE_DESTINATION, Move.Flag.COLLIDE_INTERMEDIATE)
+		),
 	},
 	FamilyTrip_familyControlSpectator = {
 		Components.dependency("spectator"),
@@ -80,7 +88,7 @@ Components.register {
 	},
 	FamilyTrip_familyFragile = {
 		Components.field.bool("broken"),
-		Components.constant.float("killDelay", .125),
+		Components.constant.float("killDelay", 0.125),
 		Components.dependency("FamilyTrip_family"),
 	},
 	FamilyTrip_familyRhythmInheritMember = {
@@ -153,7 +161,7 @@ Components.register {
 	FamilyTrip_traitStoryBosses = {
 		Components.constant.table("bosses"),
 	},
-}
+})
 
 event.entitySchemaLoadNamedEnemy.add("loadPixie", "pixie", function(ev)
 	ev.entity.FamilyTrip_autoAttackTarget = false
@@ -169,7 +177,7 @@ event.entitySchemaLoadNamedEntity.add("tagBomb", "BombLit", function(ev)
 	ev.entity.FamilyTrip_tagBomb = {}
 end)
 
-for _, name in ipairs { "ChestRed", "ChestBlack", "ChestPurple" } do
+for _, name in ipairs({ "ChestRed", "ChestBlack", "ChestPurple" }) do
 	event.entitySchemaLoadNamedEntity.add("tagChest" .. name, name, function(ev)
 		ev.entity.FamilyTrip_tagChest = {}
 	end)
@@ -195,7 +203,7 @@ end)
 --- @diagnostic disable: assign-type-mismatch, missing-fields
 
 local linkInventory = {
-	slots = Utilities.listToSet {
+	slots = Utilities.listToSet({
 		ItemSlot.Type.ACTION,
 		ItemSlot.Type.BODY,
 		ItemSlot.Type.BOMB,
@@ -210,10 +218,10 @@ local linkInventory = {
 		ItemSlot.Type.SPELL,
 		ItemSlot.Type.TORCH,
 		ItemSlot.Type.WEAPON,
-	}
+	}),
 }
 
-CustomEntities.register {
+CustomEntities.register({
 	name = "FamilyTrip_SoulLinkFamily",
 
 	FamilyTrip_soulLinkHeal = {},
@@ -222,16 +230,25 @@ CustomEntities.register {
 	soulLinkCurrency = {},
 	soulLinkGrooveChain = {},
 	soulLinkInventory = linkInventory,
-	soulLinkKillCredit = { mask = Kill.Credit.mask(Kill.Credit.GROOVE_CHAIN, Kill.Credit.SPELL_COOLDOWN, Kill.Credit.REGENERATION, Kill.Credit.DAMAGE_COUNTDOWN, Kill.Credit.INVINCIBILITY, Kill.Credit.ITEM_DROP) },
+	soulLinkKillCredit = {
+		mask = Kill.Credit.mask(
+			Kill.Credit.GROOVE_CHAIN,
+			Kill.Credit.SPELL_COOLDOWN,
+			Kill.Credit.REGENERATION,
+			Kill.Credit.DAMAGE_COUNTDOWN,
+			Kill.Credit.INVINCIBILITY,
+			Kill.Credit.ITEM_DROP
+		),
+	},
 	soulLinkSpellcasts = {},
-}
+})
 
-CustomEntities.extend {
+CustomEntities.extend({
 	name = "FamilyTrip_Potion",
-	template = CustomEntities.template.item "misc_potion",
-}
+	template = CustomEntities.template.item("misc_potion"),
+})
 
-FamilyTrip.FamilySoulName = CustomEntities.register {
+FamilyTrip.FamilySoulName = CustomEntities.register({
 	name = "FamilyTrip_FamilySoul",
 
 	CharacterSkins_excludeFromSelector = {},
@@ -257,6 +274,7 @@ FamilyTrip.FamilySoulName = CustomEntities.register {
 	actionFilter = {},
 	attackable = { flags = Attack.Flag.NONE },
 	character = {},
+	collision = { mask = Collision.Type.PLAYER },
 	controllable = {},
 	descent = {},
 	descentAllowAscent = {},
@@ -280,23 +298,47 @@ FamilyTrip.FamilySoulName = CustomEntities.register {
 	rhythmLeniencyOnLevelStart = {},
 	spectator = {},
 	spectatorIntangible = {},
-	sprite = { texture = "mods/FamilyTrip/family.png", width = 96, height = 62, scale = .5, visible = false },
+	sprite = { texture = "mods/FamilyTrip/family.png", width = 96, height = 62, scale = 0.5, visible = false },
 	targetable = { active = true },
 	team = { id = Team.Id.PLAYER },
 	traitSubstituteSomeEnemies = {
-		priority = .5,
+		priority = 0.5,
 		type = FamilyTrip.EnemySubstitutions_Type,
-		zoneRatios = { .75, .75, .75, .75, .75 },
+		zoneRatios = { 0.75, 0.75, 0.75, 0.75, 0.75 },
 	},
 	trappable = {},
 	tween = {},
 	visibility = {},
 
 	descentExitLevel = false,
-}
+})
 
 local function generateDirectionalActions(entity)
-	local list = {
+	-- local list = {
+	-- 	Action.Direction.RIGHT,
+	-- 	Action.Direction.UP_RIGHT,
+	-- 	Action.Direction.DOWN_RIGHT,
+	-- 	Action.Direction.UP,
+	-- 	Action.Direction.DOWN,
+	-- 	Action.Direction.UP_LEFT,
+	-- 	Action.Direction.DOWN_LEFT,
+	-- 	Action.Direction.LEFT,
+	-- }
+
+	-- local ignoreActions = entity.actionFilter and entity.actionFilter.ignoreActions
+	-- 	or {
+	-- 		[Action.Direction.UP_RIGHT] = true,
+	-- 		[Action.Direction.UP_LEFT] = true,
+	-- 		[Action.Direction.DOWN_LEFT] = true,
+	-- 		[Action.Direction.DOWN_RIGHT] = true,
+	-- 	}
+
+	-- Utilities.removeIf(list, function(direction)
+	-- 	return ignoreActions[direction]
+	-- end)
+
+	-- return list
+	return {
 		Action.Direction.RIGHT,
 		Action.Direction.UP_RIGHT,
 		Action.Direction.DOWN_RIGHT,
@@ -306,19 +348,6 @@ local function generateDirectionalActions(entity)
 		Action.Direction.DOWN_LEFT,
 		Action.Direction.LEFT,
 	}
-
-	local ignoreActions = entity.actionFilter and entity.actionFilter.ignoreActions or {
-		[Action.Direction.UP_RIGHT] = true,
-		[Action.Direction.UP_LEFT] = true,
-		[Action.Direction.DOWN_LEFT] = true,
-		[Action.Direction.DOWN_RIGHT] = true,
-	}
-
-	Utilities.removeIf(list, function(direction)
-		return ignoreActions[direction]
-	end)
-
-	return list
 end
 
 function FamilyTrip.familyMemberModifier(entity)
@@ -342,12 +371,12 @@ function FamilyTrip.familyMemberModifier(entity)
 	end
 
 	if entity.collisionCheckOnMove then
-		entity.collisionCheckOnMove.mask = Collision.Type.unmask(entity.collisionCheckOnMove.mask or 0,
-			Collision.Type.PLAYER)
+		entity.collisionCheckOnMove.mask =
+			Collision.Type.unmask(entity.collisionCheckOnMove.mask or 0, Collision.Type.PLAYER)
 	end
 	if entity.collisionCheckOnTeleport then
-		entity.collisionCheckOnTeleport.mask = Collision.Type.unmask(entity.collisionCheckOnTeleport.mask or 0,
-			Collision.Type.PLAYER)
+		entity.collisionCheckOnTeleport.mask =
+			Collision.Type.unmask(entity.collisionCheckOnTeleport.mask or 0, Collision.Type.PLAYER)
 	end
 	entity.descentSpectateOnCompletion = {}
 	if not entity.setFacingOnMove then
@@ -374,7 +403,7 @@ function FamilyTrip.familyMemberModifier(entity)
 	entity.traitZone4NoSpiders = false
 end
 
-CustomEntities.extend {
+CustomEntities.extend({
 	name = "FamilyTrip_Daughter",
 	template = CustomEntities.template.player(0),
 	modifier = FamilyTrip.familyMemberModifier,
@@ -386,9 +415,9 @@ CustomEntities.extend {
 			sprite = { texture = "ext/entities/player1_heads.png" },
 		},
 	},
-}
+})
 
-CustomEntities.extend {
+CustomEntities.extend({
 	name = "FamilyTrip_Father",
 	template = CustomEntities.template.player(3),
 	modifier = FamilyTrip.familyMemberModifier,
@@ -402,9 +431,9 @@ CustomEntities.extend {
 			sprite = { texture = "ext/entities/char3_heads.png", width = 33, height = 32 },
 		},
 	},
-}
+})
 
-CustomEntities.extend {
+CustomEntities.extend({
 	name = "FamilyTrip_GrandMother",
 	template = CustomEntities.template.player(2),
 	modifier = FamilyTrip.familyMemberModifier,
@@ -418,9 +447,9 @@ CustomEntities.extend {
 			sprite = { texture = "ext/entities/char2_heads.png" },
 		},
 	},
-}
+})
 
-CustomEntities.extend {
+CustomEntities.extend({
 	name = "FamilyTrip_Mother",
 	template = CustomEntities.template.player(1),
 	modifier = FamilyTrip.familyMemberModifier,
@@ -436,9 +465,9 @@ CustomEntities.extend {
 			sprite = { texture = "ext/entities/char1_heads.png" },
 		},
 	},
-}
+})
 
-for index, name in ipairs {
+for index, name in ipairs({
 	"Cadence",
 	"Melody",
 	"Aria",
@@ -454,27 +483,27 @@ for index, name in ipairs {
 	"Mary",
 	"Tempo",
 	"Reaper",
-} do
-	CustomEntities.extend {
+}) do
+	CustomEntities.extend({
 		name = "FamilyTrip_" .. name,
 		template = CustomEntities.template.player(index - 1),
 		modifier = FamilyTrip.familyMemberModifier,
-	}
+	})
 end
 
-SettingCustomFamilyMembers = Settings.entitySchema.string {
+SettingCustomFamilyMembers = Settings.entitySchema.string({
 	id = "customFamilyMembers",
 	name = "Custom family members",
 	order = 0,
 	default = "",
-}
+})
 
 event.entitySchemaLoadNamedEntity.add("customFamilyMembers", "FamilyTrip_FamilySoul", function(ev)
 	if ev.entity.FamilyTrip_family and SettingCustomFamilyMembers ~= "" then
 		local members = {}
 
 		for _, name in ipairs(StringUtilities.split(SettingCustomFamilyMembers, ",")) do
-			members[#members + 1] = ("FamilyTrip_" .. name:match "^%s*(.-)%s*$")
+			members[#members + 1] = ("FamilyTrip_" .. name:match("^%s*(.-)%s*$"))
 		end
 
 		ev.entity.FamilyTrip_family.initialMembers = members
@@ -507,7 +536,9 @@ do
 			end
 
 			local memberEntity = ECS.getEntityByID(member)
-			if memberEntity and memberEntity.FamilyTrip_familyMember
+			if
+				memberEntity
+				and memberEntity.FamilyTrip_familyMember
 				and (familyMemberIteratorIncludeDead or Character.isAlive(memberEntity))
 			then
 				return familyMemberIteratorIndex, memberEntity
@@ -539,17 +570,17 @@ local FamilyLeader_First = 1
 local FamilyLeader_Sequential = 2
 local FamilyLeader_Random = 3
 
-SettingFamilyLeader = Settings.shared.choice {
+SettingFamilyLeader = Settings.shared.choice({
 	id = "familyLeader",
 	name = "Family leader",
 	order = 10,
 	default = FamilyLeader_First,
 	choices = {
-		{ name = "First",      value = FamilyLeader_First },
+		{ name = "First", value = FamilyLeader_First },
 		{ name = "Sequential", value = FamilyLeader_Sequential },
-		{ name = "Random",     value = FamilyLeader_Random },
+		{ name = "Random", value = FamilyLeader_Random },
 	},
-}
+})
 
 local function getFamilyLeaderWithOffset(family, offset)
 	local members = family.members
@@ -642,7 +673,9 @@ function FamilyTrip.hasFamilyMemberAt(familyArg, x, y, excludeEntityID)
 
 	if familyID then
 		for _, memberEntity in ObjectMap.entitiesWithComponent(x, y, "FamilyTrip_familyMember") do
-			if memberEntity.id ~= excludeEntityID and memberEntity.FamilyTrip_familyMember.family == familyID
+			if
+				memberEntity.id ~= excludeEntityID
+				and memberEntity.FamilyTrip_familyMember.family == familyID
 				and memberEntity.gameObject.tangible
 				and not (memberEntity.descent and memberEntity.descent.active)
 			then
@@ -654,18 +687,18 @@ function FamilyTrip.hasFamilyMemberAt(familyArg, x, y, excludeEntityID)
 	end
 end
 
-SettingRandFamilyOrder = Settings.shared.bool {
+SettingRandFamilyOrder = Settings.shared.bool({
 	id = "randFamilyOrder",
 	name = "Randomize member orders",
 	order = 20,
 	default = false,
-}
+})
 
-FamilyTrip.RNGChannel_RandomizeOrder = RNG.Channel.extend "FamilyTrip_randomizeFamilyMemberOrder"
+FamilyTrip.RNGChannel_RandomizeOrder = RNG.Channel.extend("FamilyTrip_randomizeFamilyMemberOrder")
 
 event.gameStateLevel.add("randomizeFamilyMembersOrders", "multiCharacter", function()
 	if SettingRandFamilyOrder then
-		for familyEntity in ECS.entitiesWithComponents { "FamilyTrip_family" } do
+		for familyEntity in ECS.entitiesWithComponents({ "FamilyTrip_family" }) do
 			RNG.shuffle(familyEntity.FamilyTrip_family.members, FamilyTrip.RNGChannel_RandomizeOrder)
 		end
 	end
@@ -768,8 +801,10 @@ local function handleFamilyEntityAction(ev)
 	ev.FamilyTrip_leader = leaderEntity
 
 	-- A very silly fix of sliding issue.
-	if leaderEntity.slideIgnoreActions
-		and leaderEntity.slide and leaderEntity.slide.direction ~= Action.Direction.NONE
+	if
+		leaderEntity.slideIgnoreActions
+		and leaderEntity.slide
+		and leaderEntity.slide.direction ~= Action.Direction.NONE
 		and leaderEntity.slideIgnoreActions.actions[ev.direction]
 	then
 		ev.result = FamilyTrip.performFamilyMemberAction(leaderEntity, Action.Special.INVALID)
@@ -803,12 +838,12 @@ end
 event.objectSpectate.add("familySpectateMembers", {
 	filter = "FamilyTrip_family",
 	order = "spectator",
-}, newSpectatorHandler "spectate")
+}, newSpectatorHandler("spectate"))
 
 event.objectUnspectate.add("familyUnspectateMembers", {
 	filter = "FamilyTrip_family",
 	order = "spectator",
-}, newSpectatorHandler "unspectate")
+}, newSpectatorHandler("unspectate"))
 
 event.objectUpdateRhythm.add("familyRhythmInheritMember", {
 	filter = "FamilyTrip_familyRhythmInheritMember",
@@ -851,8 +886,12 @@ event.objectSpecialAction.add("familyThrowBomb", {
 
 		if direction then
 			--- @diagnostic disable-next-line: param-type-mismatch
-			Move.direction(entity, direction, ev.entity.FamilyTrip_familyThrowBomb.pushDistance,
-				ev.entity.FamilyTrip_familyThrowBomb.pushType)
+			Move.direction(
+				entity,
+				direction,
+				ev.entity.FamilyTrip_familyThrowBomb.pushDistance,
+				ev.entity.FamilyTrip_familyThrowBomb.pushType
+			)
 
 			break
 		end
@@ -904,7 +943,11 @@ local function handleFamilyMemberAutoActs(familyEntity)
 		if memberEntity ~= leader and memberEntity.FamilyTrip_familyMemberAutoAct then
 			local result
 
-			if memberEntity.character.canAct and not memberEntity.character.hasActed and not (memberEntity.hasMoved and memberEntity.hasMoved.value) then
+			if
+				memberEntity.character.canAct
+				and not memberEntity.character.hasActed
+				and not (memberEntity.hasMoved and memberEntity.hasMoved.value)
+			then
 				local ev1 = {
 					entity = memberEntity,
 				}
@@ -993,7 +1036,9 @@ local function foreachFamilyMemberAutoActDirection(ev, func, ...)
 		if act then
 			ev.result = FamilyTrip.performFamilyMemberAction(entity, direction)
 
-			break
+			if ev.result > 0 then
+				break
+			end
 		end
 	end
 end
@@ -1005,7 +1050,10 @@ local function hasAutoAttackTarget(targets)
 				return true
 			end
 
-			if target.damage >= target.victim.shield.bypassDamage or Damage.Flag.check(target.type, target.victim.shield.bypassFlags) then
+			if
+				target.damage >= target.victim.shield.bypassDamage
+				or Damage.Flag.check(target.type, target.victim.shield.bypassFlags)
+			then
 				return true
 			end
 		end
@@ -1017,7 +1065,7 @@ end
 local function autoActTryAttack(direction, entity)
 	local ev = {
 		--- @diagnostic disable-next-line: param-type-mismatch
-		direction = direction
+		direction = direction,
 	}
 	ObjectEvents.fire("checkAttack", entity, ev)
 
@@ -1101,10 +1149,10 @@ end)
 local componentsFamilyDescent = { "FamilyTrip_familyDescent" }
 
 local function updateDescentFamilies(ev)
-	local forceUpdate = ev and type(ev.level) == "number"
+	local forceAscent = ev and type(ev.level) == "number"
 
 	for familyEntity in ECS.entitiesWithComponents(componentsFamilyDescent) do
-		if forceUpdate or familyEntity.gameObject.tangible then
+		if forceAscent or familyEntity.gameObject.tangible then
 			local shouldDescent = true
 
 			--- @param memberEntity Entity
@@ -1117,7 +1165,14 @@ local function updateDescentFamilies(ev)
 			end
 
 			if familyEntity.descent.active then
-				if not shouldDescent then
+				if
+					forceAscent
+					or (
+						not shouldDescent
+						and familyEntity.descentAllowAscent
+						and familyEntity.descentAllowAscent.active
+					)
+				then
 					Descent.ascend(familyEntity)
 				end
 			else
@@ -1140,7 +1195,7 @@ event.gameStateLevel.add("placeFamilyMembers", {
 	order = "placePlayers",
 	sequence = 1,
 }, function()
-	for entity in ECS.entitiesWithComponents { "FamilyTrip_familyMember" } do
+	for entity in ECS.entitiesWithComponents({ "FamilyTrip_familyMember" }) do
 		local familyEntity = ECS.getEntityByID(entity.FamilyTrip_familyMember.family)
 		if familyEntity and familyEntity.position then
 			Move.absolute(entity, familyEntity.position.x, familyEntity.position.y)
@@ -1150,11 +1205,13 @@ end)
 
 event.objectDescentArrive.add("familyAscentMembers", {
 	filter = "FamilyTrip_familyDescent",
-	order = "follower"
+	order = "follower",
 }, function(ev)
 	if ev.ascent then
 		for _, memberEntity in iterateFamilyMembers(ev.entity.FamilyTrip_family, true) do
-			Descent.ascend(memberEntity)
+			if memberEntity.descentAllowAscent and memberEntity.descentAllowAscent.active then
+				Descent.ascend(memberEntity)
+			end
 		end
 	end
 end)
@@ -1181,8 +1238,13 @@ event.updateFocusedEntities.add("focusFamilyMembers", "localDads", function(ev)
 
 		if entity.FamilyTrip_familyFocusLeader then
 			local leaderEntity = FamilyTrip.getFamilyLeader(entity.FamilyTrip_family)
-			if leaderEntity and leaderEntity.focusable and leaderEntity.gameObject and leaderEntity.gameObject.tangible then
-				leaderEntity.focusable.flags = entity.focusable.flags
+			if
+				leaderEntity
+				and leaderEntity.focusable
+				and leaderEntity.gameObject
+				and leaderEntity.gameObject.tangible
+			then
+				leaderEntity.focusable.flags = Focus.Flag.mask(entity.focusable.flags, Focus.Flag.HUD)
 				table.insert(ev.entities, i, leaderEntity)
 				i = i + 1
 
@@ -1296,8 +1358,8 @@ do
 			return ld < rd
 		end
 
-		return Utilities.arrayFind(memberEntitiesComparerEntities, l) <
-			Utilities.arrayFind(memberEntitiesComparerEntities, r)
+		return Utilities.arrayFind(memberEntitiesComparerEntities, l)
+			< Utilities.arrayFind(memberEntitiesComparerEntities, r)
 	end
 
 	sortFamilyMembersByLeaderPosition = function(memberEntities, x, y)
@@ -1315,15 +1377,19 @@ event.objectMove.add("familyLeaderMoveFamily", {
 }, function(ev)
 	local isLeader, familyEntity = FamilyTrip.isFamilyLeader(ev.entity)
 	if isLeader and familyEntity then
-		Move.absolute(familyEntity, ev.entity.position.x, ev.entity.position.y,
-			Move.Flag.unmask(ev.moveType, familyEntity.FamilyTrip_family.moveFlagUnmask))
+		Move.absolute(
+			familyEntity,
+			ev.entity.position.x,
+			ev.entity.position.y,
+			Move.Flag.unmask(ev.moveType, familyEntity.FamilyTrip_family.moveFlagUnmask)
+		)
 	end
 end)
 
-for i, component in ipairs {
+for i, component in ipairs({
 	"interactableSelectCharacter",
 	"interactableToggleExtraMode",
-} do
+}) do
 	event.objectInteract.add("familyMemberLetFamilyActivate" .. i, {
 		filter = component,
 		order = "activate",
@@ -1363,15 +1429,21 @@ event.objectMove.add("familyMemberMover", {
 
 	local memberEntities = Utilities.newTable(#family.members, 0)
 	for _, memberEntity in iterateFamilyMembers(family) do
-		if memberEntity ~= entity and memberEntity ~= leaderEntity
-			and memberEntity.FamilyTrip_familyMemberMovable and memberEntity.FamilyTrip_familyMemberMovable.value
+		if
+			memberEntity ~= entity
+			and memberEntity ~= leaderEntity
+			and memberEntity.FamilyTrip_familyMemberMovable
+			and memberEntity.FamilyTrip_familyMemberMovable.value
 		then
 			memberEntities[#memberEntities + 1] = memberEntity
 		end
 	end
 
-	sortFamilyMembersByLeaderPosition(memberEntities, Utilities.lerp(ev.prevX, ev.x, -.25),
-		Utilities.lerp(ev.prevY, ev.y, -.25))
+	sortFamilyMembersByLeaderPosition(
+		memberEntities,
+		Utilities.lerp(ev.prevX, ev.x, -0.25),
+		Utilities.lerp(ev.prevY, ev.y, -0.25)
+	)
 
 	for _, memberEntity in ipairs(memberEntities) do
 		memberEntity.FamilyTrip_familyMemberMovable.value = false
@@ -1413,13 +1485,13 @@ local function protectorPriority(entity, ev)
 	end
 
 	if entity.health.health > 1 then
-		for item in ECS.entitiesWithComponents { "item", "itemArmor" } do
+		for item in ECS.entitiesWithComponents({ "item", "itemArmor" }) do
 			if item.item.holder == entity.id and checkArmorCondition(item.itemArmor, ev) then
 				value = value + item.itemArmor.damageReduction
 			end
 		end
 
-		for item in ECS.entitiesWithComponents { "item", "itemArmorLate" } do
+		for item in ECS.entitiesWithComponents({ "item", "itemArmorLate" }) do
 			if item.item.holder == entity.id and checkArmorCondition(item.itemArmorLate, ev) then
 				value = value + item.itemArmorLate.damageReduction
 			end
@@ -1431,7 +1503,7 @@ end
 
 event.objectTakeDamage.add("familyMemberProtectWeaker", {
 	filter = "FamilyTrip_familyMemberProtectWeaker",
-	order = "immunity"
+	order = "immunity",
 }, function(ev)
 	if ev.suppressed then
 		return
@@ -1439,7 +1511,13 @@ event.objectTakeDamage.add("familyMemberProtectWeaker", {
 
 	local family = ev.entity.FamilyTrip_familyMember.family
 	local members
-	for _, entity in ObjectMap.entitiesWithComponent(ev.entity.position.x, ev.entity.position.y, "FamilyTrip_familyMemberProtectWeaker") do
+	for _, entity in
+		ObjectMap.entitiesWithComponent(
+			ev.entity.position.x,
+			ev.entity.position.y,
+			"FamilyTrip_familyMemberProtectWeaker"
+		)
+	do
 		if entity ~= ev.entity and entity.FamilyTrip_familyMember.family == family and entity.health then
 			members = members or {}
 			members[#members + 1] = entity
@@ -1521,7 +1599,7 @@ event.turn.add("familyMemberGrooveChainIdleImmunity", "nextTurnEffect", function
 end)
 
 event.gameStateLevel.add("attackableOverrideInLobby", "levelLoadingDone", function()
-	for entity in ECS.entitiesWithComponents { "FamilyTrip_attackableOverrideInLobby" } do
+	for entity in ECS.entitiesWithComponents({ "FamilyTrip_attackableOverrideInLobby" }) do
 		Attack.updateAttackability(entity)
 	end
 end)
@@ -1611,7 +1689,7 @@ event.objectMove.add("setGameplayFacingOnMove", {
 	order = "facing",
 	sequence = 1,
 }, function(ev)
-	Facing.setDirection(ev.entity, Action.move(ev.x - ev.prevX, ev.y - ev.prevY))
+	Facing.setDirection(ev.entity, Action.getDirection(ev.x - ev.prevX, ev.y - ev.prevY))
 end)
 
 event.objectHeal.add("soulLinkHeal", {
@@ -1639,17 +1717,17 @@ end
 
 event.gameStateLevel.add("updateClientCharOrderPending", "resetLevelVariables", FamilyTrip.updateClientCharOrderPending)
 
-SettingCustomCharOrder = Settings.user.table {
+SettingCustomCharOrder = Settings.user.table({
 	id = "customCharOrder",
 	name = "Custom character orders",
-	desc = "Customize character orders of `Family Soul`.\
-If you want Dorian always be the first and Aria to be second, fill in {\"Dorian\",\"Aria\"}\
-Available values: \"Aria\", \"Cadence\", \"Dorian\", \"Melody\"",
+	desc = 'Customize character orders of `Family Soul`.\
+If you want Dorian always be the first and Aria to be second, fill in {"Dorian","Aria"}\
+Available values: "Aria", "Cadence", "Dorian", "Melody"',
 	setter = FamilyTrip.updateClientCharOrderPending,
 	visibility = Settings.Visibility.VISIBLE,
-}
+})
 
-SettingCanCustomizeCharOrder = Settings.shared.bool {
+SettingCanCustomizeCharOrder = Settings.shared.bool({
 	id = "canCustomCharOrder",
 	name = "Allow custom character orders",
 	default = true,
@@ -1657,12 +1735,12 @@ SettingCanCustomizeCharOrder = Settings.shared.bool {
 	-- enableIf = function()
 	-- 	return SettingsStorage.get "mod.FamilyTrip.customFamilyMembers" == ""
 	-- end,
-}
+})
 
-UserDefinedCharOrders = Snapshot.loopVariable {}
+UserDefinedCharOrders = Snapshot.loopVariable({})
 
 local updateUserDefinedCharOrder
-FamilyTrip.Action_Special_DefineCharOrder, updateUserDefinedCharOrder = CustomActions.registerSystemAction {
+FamilyTrip.Action_Special_DefineCharOrder, updateUserDefinedCharOrder = CustomActions.registerSystemAction({
 	id = "updateUserCharOrder",
 	callback = function(playerID, args)
 		if type(args) ~= "table" or type(args.custom) ~= "table" or not SettingCanCustomizeCharOrder then
@@ -1720,7 +1798,7 @@ FamilyTrip.Action_Special_DefineCharOrder, updateUserDefinedCharOrder = CustomAc
 			return (le and le.id or 0) < (re and re.id or 0)
 		end)
 	end,
-}
+})
 
 event.tick.add("updateUserDefinedCharOrder", "pendingDelays", function()
 	if updateClientCharOrderPending and next(SettingCustomCharOrder) then
@@ -1765,7 +1843,7 @@ event.menu.add("pauseMenuAddFamilyUserSetting", {
 			return table.insert(ev.menu.entries, 5, {
 				label = "Family Trip",
 				action = function()
-					SettingsMenu.open {
+					SettingsMenu.open({
 						autoSave = true,
 						emptySearchText = false,
 						highlightChanges = true,
@@ -1778,7 +1856,7 @@ event.menu.add("pauseMenuAddFamilyUserSetting", {
 						showSliders = true,
 						submenu = true,
 						title = false,
-					}
+					})
 				end,
 			})
 		end
